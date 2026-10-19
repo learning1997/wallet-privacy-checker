@@ -3,27 +3,19 @@
 import { useState, type FormEvent } from 'react';
 import {
   ArrowDownRight, ArrowRight, ArrowUpRight, Check, ChevronRight, CircleHelp,
-  ExternalLink, Fingerprint, LockKeyhole, Menu, Radar, ScanLine, Shield,
+  Download, ExternalLink, Fingerprint, LockKeyhole, Menu, Radar, ScanLine, Shield,
   ShieldCheck, Sparkles, TriangleAlert, Wallet, X,
 } from 'lucide-react';
 import {
   calculatePrivacy, isEvmAddress, parseEtherscanList,
   type EtherscanTokenTransfer, type EtherscanTransaction, type PrivacyReport,
 } from '@/lib/privacy';
+import { buildShareCardModel, buildShareText, shareCardFilename, shortWallet as shortAddress, SCORE_COLORS } from '@/lib/shareCard';
+import { downloadBlob, renderShareCardBlob } from '@/lib/renderShareCard';
 
 const ETHERSCAN = 'https://api.etherscan.io/v2/api?chainid=1';
 const FLUTON_TESTNET = 'https://testnet.fluton.io';
 const FLUTON_SITE = 'https://fluton.io';
-
-const scoreColor: Record<PrivacyReport['label'], string> = {
-  GHOST: '#00ffb0',
-  CAUTIOUS: '#4bdcff',
-  EXPOSED: '#f4d35e',
-  VULNERABLE: '#ff964f',
-  'FULLY TRANSPARENT': '#ff4d67',
-};
-
-const shortAddress = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
 
 async function fetchEtherscanList<T>(action: 'txlist' | 'tokentx', address: string, apiKey: string): Promise<T[]> {
   const params = new URLSearchParams({
@@ -55,6 +47,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [imageState, setImageState] = useState<'idle' | 'working' | 'done'>('idle');
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -89,8 +82,23 @@ export default function Home() {
 
   function shareScore() {
     if (!report) return;
-    const text = `My wallet privacy score is ${report.score}/100 ${report.label} on @flutonIo Privacy Checker.\n\nIs your DeFi wallet exposed? Check yours: ${window.location.origin}\n\n#Fluton #PrivacyDeFi #Web3Privacy`;
+    const text = buildShareText(report, window.location.origin);
     window.open(`https://x.com/intent/post?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+  }
+
+  async function downloadScoreCard() {
+    if (!report || imageState === 'working') return;
+    setError('');
+    setImageState('working');
+    try {
+      const blob = await renderShareCardBlob(buildShareCardModel(report, scannedAddress));
+      downloadBlob(blob, shareCardFilename(scannedAddress));
+      setImageState('done');
+      window.setTimeout(() => setImageState('idle'), 2400);
+    } catch {
+      setError('Could not render the image. Try again.');
+      setImageState('idle');
+    }
   }
 
   async function copyAddress() {
@@ -103,7 +111,7 @@ export default function Home() {
     }
   }
 
-  const color = report ? scoreColor[report.label] : scoreColor.GHOST;
+  const color = report ? SCORE_COLORS[report.label] : SCORE_COLORS.GHOST;
   const scoreStyle = report ? ({ '--score-color': color, '--score-angle': `${report.score * 3.6}deg` } as React.CSSProperties) : undefined;
 
   return (
@@ -206,7 +214,11 @@ export default function Home() {
         <div className="cta-row">
           <a className="protect-cta" href={FLUTON_TESTNET} target="_blank" rel="noreferrer"><ShieldCheck size={17} /> PROTECT YOUR WALLET <ArrowRight size={16} /></a>
           <button className="share-cta" onClick={shareScore}><span className="x-mark">𝕏</span> SHARE MY SCORE ON X <ArrowUpRight size={14} /></button>
+          <button className="download-cta" onClick={downloadScoreCard} disabled={imageState === 'working'}>
+            {imageState === 'working' ? <><span className="spinner neon" /> RENDERING IMAGE...</> : imageState === 'done' ? <><Check size={15} /> IMAGE SAVED</> : <><Download size={15} /> DOWNLOAD IMAGE</>}
+          </button>
         </div>
+        <p className="cta-note">Saves a share-ready 1080×1350 PNG of this report, including the shortened wallet address.</p>
 
         <section className="how-section">
           <div className="how-header"><div><span className="section-kicker">PRIVATE TRANSACTIONS, SIMPLIFIED</span><h3>HOW FLUTON WORKS</h3></div><a href={FLUTON_TESTNET} target="_blank" rel="noreferrer" className="text-link">EXPLORE TESTNET <ChevronRight size={14} /></a></div>

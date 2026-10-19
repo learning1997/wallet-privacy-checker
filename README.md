@@ -2,6 +2,13 @@
 
 A single-page, read-only Ethereum wallet privacy checker built with Next.js 14, TypeScript, and Tailwind CSS. The browser requests public transaction data from Etherscan and calculates an educational privacy estimate; no wallet connection or backend is used.
 
+## What it does
+
+- Scores any EVM address from public Ethereum data (rules below).
+- Shows the exposure breakdown and what Fluton would protect.
+- Exports a share-ready 1080×1350 PNG (`DOWNLOAD IMAGE`), drawn on a canvas in the browser — the card includes the shortened wallet address, so treat it as public before posting.
+- Builds a pre-filled X post with the score and label.
+
 ## Run locally
 
 1. Install Node.js 18.17+ (Node 20+ recommended).
